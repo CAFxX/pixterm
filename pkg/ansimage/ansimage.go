@@ -283,8 +283,8 @@ func (ai *ANSImage) RenderExt(renderGoCode, disableBgColor bool) string {
 		backslash033 = "\\033"
 	}
 
-	// WITHOUT DITHERING
 	if ai.dithering == NoDithering {
+		// WITHOUT DITHERING
 		rows := make([]string, ai.h/2)
 		for y := 0; y < ai.h; y += ai.maxprocs {
 			ch := make(chan renderData, ai.maxprocs)
