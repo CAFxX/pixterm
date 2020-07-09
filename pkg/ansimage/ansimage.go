@@ -304,9 +304,6 @@ func (ai *ANSImage) RenderExt(renderGoCode, disableBgColor bool) string {
 			}
 			for n, r := 0, y+1; (n <= ai.maxprocs) && (2*r+1 < ai.h); n, r = n+1, y+n+1 {
 				data := <-ch
-				if renderGoCode {
-					data.render = fmt.Sprintf(`fmt.Print("%s")%s`, data.render, "\n")
-				}
 				rows[data.row] = data.render
 				// DEBUG:
 				// fmt.Printf("data.row:%d\n", data.row)
@@ -314,31 +311,32 @@ func (ai *ANSImage) RenderExt(renderGoCode, disableBgColor bool) string {
 			}
 		}
 		return strings.Join(rows, "")
-	}
-
-	// WITH DITHERING
-	rows := make([]string, ai.h)
-	for y := 0; y < ai.h; y += ai.maxprocs {
-		ch := make(chan renderData, ai.maxprocs)
-		for n, r := 0, y; (n <= ai.maxprocs) && (r+1 < ai.h); n, r = n+1, y+n+1 {
-			go func(y int) {
-				var str string
-				for x := 0; x < ai.w; x++ {
-					str += ai.pixmap[y][x].RenderExt(renderGoCode, disableBgColor)
-				}
-				str += fmt.Sprintf("%s[0m%s", backslash033, backslashN) // reset ansi style
-				ch <- renderData{row: y, render: str}
-			}(r)
-		}
-		for n, r := 0, y; (n <= ai.maxprocs) && (r+1 < ai.h); n, r = n+1, y+n+1 {
-			data := <-ch
-			if renderGoCode {
-				data.render = fmt.Sprintf(`fmt.Print("%s")%s`, data.render, "\n")
+	} else {
+		// WITH DITHERING
+		rows := make([]string, ai.h)
+		for y := 0; y < ai.h; y += ai.maxprocs {
+			ch := make(chan renderData, ai.maxprocs)
+			for n, r := 0, y; (n <= ai.maxprocs) && (r+1 < ai.h); n, r = n+1, y+n+1 {
+				go func(y int) {
+					var str string
+					for x := 0; x < ai.w; x++ {
+						str += ai.pixmap[y][x].RenderExt(renderGoCode, disableBgColor)
+					}
+					str += fmt.Sprintf("%s[0m%s", backslash033, backslashN) // reset ansi style
+					ch <- renderData{row: y, render: str}
+				}(r)
 			}
-			rows[data.row] = data.render
+			for n, r := 0, y; (n <= ai.maxprocs) && (r+1 < ai.h); n, r = n+1, y+n+1 {
+				data := <-ch
+				rows[data.row] = data.render
+			}
 		}
 	}
-	return strings.Join(rows, "")
+	ret := strings.Join(rows, "")
+	if renderGoCode {
+		ret = fmt.Sprintf("%#v", ret)
+	}
+	return ret
 }
 
 // Draw writes the ANSImage to standard output (terminal).
